@@ -1,7 +1,9 @@
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.rl_config import defaultPageSize
+from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import cm
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
@@ -11,63 +13,99 @@ class CreatePDF:
     ベースは公式ページのサンプルプログラム
     https://www.reportlab.com/docs/platypus-example.py
     """
-    pdfmetrics.registerFont(UnicodeCIDFont('HeiseiMin-W3'))
-    
-    PAGE_HEIGHT=defaultPageSize[1]
-    PAGE_WIDTH=defaultPageSize[0]
+    # -- 日本語フォント
+    font = 'HeiseiMin-W3'
+    pdfmetrics.registerFont(UnicodeCIDFont(font))
 
+    # -- ページサイズ
+    pagesize = 'A4'
+
+    # -- 段落スタイル
     styles = getSampleStyleSheet()
-    this_styles = styles["Normal"]
-    this_styles.fontName = "HeiseiMin-W3"
+    p_style = styles["Normal"]
+    p_style.fontName = font
 
-    Title = u"申込内容通知サンプル:title"
-    pageinfo = u"申込内容通知サンプル:platypus example"
-    
-    # -- 1ページ目専用 
-    def myFirstPage(self, canvas, doc):
+    # -- ヘッダスタイル
+    h_style = styles["Heading1"]
+    h_style.fontName = font
+    h_style.alignment = TA_CENTER
+
+    # -- フッタ文字列
+    pageinfo = "申込内容通知"
+
+    # -- 1ページ目
+    def first_page(self, canvas, doc):
         canvas.saveState()
-        canvas.setFont('HeiseiMin-W3', 16)
-        canvas.drawCentredString(self.PAGE_WIDTH/2.0, self.PAGE_HEIGHT-30, self.Title)
-
-        canvas.setFont('HeiseiMin-W3', 9)
+        canvas.setFont(self.font, 9)
         canvas.drawString(cm, 0.75 * cm,"Page %d %s" % (doc.page, self.pageinfo))
         canvas.restoreState()
-    
+
     # -- 2ページ目以降
-    def myLaterPages(self, canvas, doc):
-        canvas.saveState()
-        canvas.setFont('HeiseiMin-W3', 9)
-        canvas.drawString(cm, 0.75 * cm,"Page %d %s" % (doc.page, self.pageinfo))
-        canvas.restoreState()
-    
+    def later_pages(self, canvas, doc):
+        self.first_page(canvas, doc)
+
     def go(self, order):
-        doc = SimpleDocTemplate(f"skit_sample_{order['id']}.pdf")
+        doc = SimpleDocTemplate(f"skit_sample_{order['id']}.pdf", pagesize = A4)
 
-        story = [Spacer(1,2*cm)]
-        style = self.this_styles
+        story = []
 
-        p = Paragraph(order['id'], style)
+        # -- 発行日
+        p = Paragraph("発行日 : yyyy/mm/dd", self.p_style)
         story.append(p)
         story.append(Spacer(1,0.5*cm))
 
-        address = order['address_1'] + order['address_2'] + order['address_3'] + order['address_name']
-        p = Paragraph(address, style)
+        # -- 住所情報
+        address = [['', f"〒 {order['address_1']}"]
+                  ,['', order['address_2']]
+                  ,['', order['address_3']]
+                  ,['', '']
+                  ,['', f"{order['address_name']}  様"]
+        ]
+        t1 = Table(address, colWidths=(0.1*cm, 20*cm))
+        t1.setStyle(TableStyle([('FONT', (0, 0), (-1, -1), self.font, 9)
+                               ,
+        ]))
+        story.append(t1)
+        story.append(Spacer(1,2.0*cm))
+
+        # -- 資料タイトル
+        h = Paragraph("ご契約内容", self.h_style)
+        story.append(h)
+        story.append(Spacer(1,0.5*cm))
+
+        # -- 資料説明文
+        title = 'お申込み頂いたブロードバンドサービスのプラン変更についてご案内しております。\n大切なご案内となりますので必ずご確認ください。'
+        p = Paragraph(title, self.p_style)
         story.append(p)
         story.append(Spacer(1,0.5*cm))
 
-        details = order['order_date'] + order['order_no'] + order['order_plan']
-        p = Paragraph(details, style)
+        # -- テーブルタイトル
+        p = Paragraph("■申込情報", self.p_style)
         story.append(p)
+        # -- 申込情報
+        details = [['ユーザID', order['id']]
+                  ,['氏名', order['address_name']]
+                  ,['申込日', order['order_date']]
+                  ,['申込No', order['order_no']]
+                  ,['申込サービス', order['order_plan']]
+        ]
+        t2 = Table(details, colWidths=(5*cm, 10*cm))
+        t2.setStyle(TableStyle([('FONT', (0, 0), (-1, -1), self.font, 9)
+                               ,('GRID', (0, 0), (-1, -1), 0.25, colors.black)
+                               ,('BACKGROUND', (0, 0), (0, -1), colors.aliceblue)
+                               ,
+        ]))
+        story.append(t2)
         story.append(Spacer(1,0.5*cm))
 
         for i in range(5):
             caution = order['quality'] * 20
-            p = Paragraph(caution, style)
+            p = Paragraph(caution, self.p_style)
             story.append(p)
             story.append(Spacer(1,0.5*cm))
 
-        doc.build(story, onFirstPage=self.myFirstPage, onLaterPages=self.myLaterPages)
-    
+        doc.build(story, onFirstPage=self.first_page, onLaterPages=self.later_pages)
+
 
 import pandas as pd
 
@@ -77,11 +115,12 @@ class Order:
     現段階では出力項目をすべて含むCSVファイルを取り込むだけ
     """
     def __init__(self, csvfile):
-        self.df = pd.read_csv(csvfile) 
+        self.df = pd.read_csv(csvfile)
 
 
 if __name__ == "__main__":
     pdf = CreatePDF()
+    # -- csvインポート
     orders = Order('./order.csv')
 
     for index, order in orders.df.iterrows():
