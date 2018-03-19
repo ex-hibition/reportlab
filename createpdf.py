@@ -1,4 +1,4 @@
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
@@ -37,22 +37,21 @@ class CreatePDF:
     def first_page(self, canvas, doc):
         canvas.saveState()
         canvas.setFont(self.font, 9)
-        canvas.drawString(cm, 0.75 * cm,"Page %d %s" % (doc.page, self.pageinfo))
+        canvas.drawString(17.0 * cm, 28.5 * cm, "発行日 : yyyy年mm月dd日")
+        canvas.drawString(0.5 * cm, 0.75 * cm, "Page %d %s" % (doc.page, self.pageinfo))
         canvas.restoreState()
 
     # -- 2ページ目以降
     def later_pages(self, canvas, doc):
-        self.first_page(canvas, doc)
+        canvas.saveState()
+        canvas.setFont(self.font, 9)
+        canvas.drawString(0.5 * cm, 0.75 * cm,"Page %d %s" % (doc.page, self.pageinfo))
+        canvas.restoreState()
 
     def go(self, order):
         doc = SimpleDocTemplate(f"skit_sample_{order['id']}.pdf", pagesize = A4)
 
         story = []
-
-        # -- 発行日
-        p = Paragraph("発行日 : yyyy/mm/dd", self.p_style)
-        story.append(p)
-        story.append(Spacer(1,0.5*cm))
 
         # -- 住所情報
         address = [['', f"〒 {order['address_1']}"]
@@ -67,6 +66,11 @@ class CreatePDF:
         ]))
         story.append(t1)
         story.append(Spacer(1,2.0*cm))
+
+        # -- pngロゴ
+        img = Image('logo.png', hAlign='CENTER')
+        story.append(img)
+        story.append(Spacer(1,0.5*cm))
 
         # -- 資料タイトル
         h = Paragraph("ご契約内容", self.h_style)
