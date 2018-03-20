@@ -102,6 +102,12 @@ class CreatePDF:
         story.append(t2)
         story.append(Spacer(1,0.5*cm))
 
+        # -- グラフ
+        Graph.draw_graph()
+        img_graph = Image('graph.png', hAlign='CENTER')
+        story.append(img_graph)
+        story.append(Spacer(1,0.5*cm))
+
         for i in range(5):
             caution = order['quality'] * 20
             p = Paragraph(caution, self.p_style)
@@ -109,6 +115,7 @@ class CreatePDF:
             story.append(Spacer(1,0.5*cm))
 
         doc.build(story, onFirstPage=self.first_page, onLaterPages=self.later_pages)
+
 
 
 import pandas as pd
@@ -120,6 +127,31 @@ class Order:
     """
     def __init__(self, csvfile):
         self.df = pd.read_csv(csvfile)
+
+
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+
+class Graph:
+    """グラフを作成するクラス"""
+
+    def draw_graph():
+        fig = plt.figure()
+        left = np.array(['fast month',2,3,4,5,6,7,'8-'])
+        height1 = np.array([0, 1000, 1100, 1200, 1300, 1400, 1500, 2980])
+        height2 = np.array([2980, 1980, 1880, 1780, 1680, 1580, 1480, 0])
+        p1 = plt.bar(left, height1, color="blue")
+        p2 = plt.bar(left, height2, bottom=height1, color="pink")
+        plt.legend((p1[0], p2[0]), ("Sales Price", "Discount"))
+        plt.title("Service Amount")
+        plt.xlabel("Since")
+        plt.ylabel("Amount")
+
+        fig.savefig('graph.png')
+
 
 
 if __name__ == "__main__":
